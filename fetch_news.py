@@ -59,16 +59,14 @@ def fetch_country_news(country_code: str, lang: str):
 
         item_id = make_item_id(link)
         doc_ref = collection_ref.document(item_id)
-
-        if doc_ref.get().exists:
-            continue  # already stored, skip (dedupe)
+        existing = doc_ref.get()
 
         published_at = parse_published(entry)
         source_name = ""
         if hasattr(entry, "source") and hasattr(entry.source, "title"):
             source_name = entry.source.title
 
-        doc_ref.set({
+        data = {
             "title": title,
             "summary": clean_summary(getattr(entry, "summary", "")),
             "source_name": source_name,
@@ -81,8 +79,13 @@ def fetch_country_news(country_code: str, lang: str):
             "youtube_video_id": None,
             "fetch_batch_id": batch_id,
             "ttl_expire_at": published_at + timedelta(days=RETENTION_DAYS),
-        })
-        new_count += 1
+        }
+
+        if existing.exists:
+            doc_ref.update({"summary": data["summary"]})  # refresh cleaned summary only
+        else:
+            doc_ref.set(data)
+            new_count += 1
 
     return new_count
 
