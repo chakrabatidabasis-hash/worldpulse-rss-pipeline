@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import html
 import hashlib
 from datetime import datetime, timedelta, timezone
 
@@ -23,6 +25,16 @@ RETENTION_DAYS = 7
 def make_item_id(link: str) -> str:
     """Create a stable, safe document ID from a link."""
     return hashlib.sha256(link.encode("utf-8")).hexdigest()[:24]
+
+
+def clean_summary(raw: str) -> str:
+    """Strip HTML tags and unescape entities from RSS summary text."""
+    if not raw:
+        return ""
+    text = re.sub(r"<[^<]+?>", "", raw)
+    text = html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:300]
 
 
 def parse_published(entry):
@@ -58,7 +70,7 @@ def fetch_country_news(country_code: str, lang: str):
 
         doc_ref.set({
             "title": title,
-            "summary": getattr(entry, "summary", "")[:300],
+            "summary": clean_summary(getattr(entry, "summary", "")),
             "source_name": source_name,
             "source_url": link,
             "language": lang,
